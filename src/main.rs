@@ -1,126 +1,8 @@
+mod cargo;
+
+use cargo::{CargoItem, CargoRegistry, CargoType};
 use std::io::{self, Write};
 
-/// Represents different categories of cargo with associated payload data.
-#[derive(Debug)]
-pub enum CargoType {
-    Mineral(u32),
-    Food { kg: f64, fresh: bool },
-    EnergyCell(f64),
-}
-
-impl CargoType {
-    /// Calculates and returns the exact weight in kilograms for any cargo type.
-    pub fn calculate_weight(&self) -> f64 {
-        match self {
-            CargoType::Mineral(purity) => *purity as f64 * 2.5, // Beispiel: Purity skaliert das Gewicht
-            CargoType::Food { kg, .. } => *kg,
-            CargoType::EnergyCell(mj) => *mj * 0.1, // Beispiel: Energie hat geringes Eigenmassegewicht
-        }
-    }
-}
-
-/// Represents an individual cargo container aboard the starship.
-#[derive(Debug)]
-pub struct CargoItem {
-    pub id: u32,
-    pub name: String,
-    pub cargo_type: CargoType,
-}
-
-impl CargoItem {
-    /// Creates a new cargo container instance.
-    pub fn new(id: u32, name: &str, cargo_type: CargoType) -> Self {
-        CargoItem {
-            id,
-            name: name.to_string(),
-            cargo_type,
-        }
-    }
-
-    /// Recharges the energy cell if the item is of type EnergyCell.
-    pub fn recharge(&mut self, amount: f64) -> Result<(), String> {
-        match &mut self.cargo_type {
-            CargoType::EnergyCell(energy) => {
-                *energy += amount;
-                Ok(())
-            }
-            _ => Err(format!("Cargo item '{}' (ID: {}) is not an Energy Cell.", self.name, self.id)),
-        }
-    }
-
-    /// Returns the weight of this specific item.
-    pub fn weight(&self) -> f64 {
-        self.cargo_type.calculate_weight()
-    }
-}
-
-/// Represents the starships cargo hold managing multiple items with a strict weight limit.
-pub struct CargoRegistry {
-    items: Vec<CargoItem>,
-    max_capacity_kg: f64,
-}
-
-impl CargoRegistry {
-    /// Creates a new cargo registry with a defined maximum capacity.
-    pub fn new(items: Vec<CargoItem>, max_capacity_kg: f64) -> Self {
-        CargoRegistry { items, max_capacity_kg }
-    }
-
-    /// Calculates the current total weight of all cargo items using iterators.
-    pub fn current_weight(&self) -> f64 {
-        self.items.iter().map(|item| item.weight()).sum()
-    }
-
-    /// Adds a new cargo item if it doesn't exceed the maximum weight capacity.
-    pub fn add_item(&mut self, item: CargoItem) -> Result<(), String> {
-        let item_weight = item.weight();
-        let current_load = self.current_weight();
-
-        if current_load + item_weight > self.max_capacity_kg {
-            return Err(format!(
-                "Capacity exceeded! Cannot add '{}' ({} kg). Current load: {:.1} kg / Max: {:.1} kg",
-                item.name, item_weight, current_load, self.max_capacity_kg
-            ));
-        }
-
-        self.items.push(item);
-        Ok(())
-    }
-
-    /// Removes a cargo item by its ID.
-    pub fn remove_item(&mut self, id: u32) -> Option<CargoItem> {
-        if let Some(index) = self.items.iter().position(|item| item.id == id) {
-            Some(self.items.remove(index))
-        } else {
-            None
-        }
-    }
-
-    /// Finds a cargo item by its ID for mutable operations.
-    pub fn find_by_id_mut(&mut self, id: u32) -> Option<&mut CargoItem> {
-        self.items.iter_mut().find(|item| item.id == id)
-    }
-
-    /// Prints a summary of all loaded cargo items and current weight statistics.
-    pub fn list_cargo(&self) {
-        let load = self.current_weight();
-        println!("\n--- CURRENT CARGO REGISTRY ---");
-        println!("Capacity: {:.1} / {:.1} kg", load, self.max_capacity_kg);
-        if self.items.is_empty() {
-            println!("Registry is empty.");
-        } else {
-            for item in &self.items {
-                println!(
-                    "ID: {} | Name: {} | Weight: {:.1} kg | Type: {:?}",
-                    item.id, item.name, item.weight(), item.cargo_type
-                );
-            }
-        }
-        println!("------------------------------\n");
-    }
-}
-
-/// Reads a line from standard input and parses it into a trimmed String.
 fn read_input(prompt_text: &str) -> Result<String, String> {
     print!("{}", prompt_text);
     io::stdout().flush().map_err(|_| "Failed to flush stdout".to_string())?;
@@ -133,21 +15,36 @@ fn read_input(prompt_text: &str) -> Result<String, String> {
     Ok(input.trim().to_string())
 }
 
-/// Helper to read and parse a u32 value safely.
 fn read_u32(prompt_text: &str) -> Result<u32, String> {
     let input = read_input(prompt_text)?;
     input.parse::<u32>().map_err(|_| format!("'{}' is not a valid number", input))
 }
 
-/// Helper to read and parse an f64 value safely.
 fn read_f64(prompt_text: &str) -> Result<f64, String> {
     let input = read_input(prompt_text)?;
     input.parse::<f64>().map_err(|_| format!("'{}' is not a valid decimal number", input))
 }
 
+fn list_registry_summary(registry: &CargoRegistry) {
+    let load = registry.current_weight();
+    println!("\n--- CURRENT CARGO REGISTRY ---");
+    println!("Capacity: {:.1} / {:.1} kg", load, registry.max_capacity());
+    if registry.items().is_empty() {
+        println!("Registry is empty.");
+    } else {
+        for item in registry.items() {
+            println!(
+                "ID: {} | Name: {} | Weight: {:.1} kg | Type: {:?}",
+                item.id, item.name, item.weight(), item.cargo_type
+            );
+        }
+    }
+    println!("------------------------------\n");
+}
+
 fn main() {
     println!("========================================");
-    println!("  STARSHIP CARGO & ENERGY REGISTRY v1.4 ");
+    println!("  STARSHIP CARGO & ENERGY REGISTRY v2.0 ");
     println!("========================================");
 
     let initial_items = vec![
@@ -156,13 +53,12 @@ fn main() {
         CargoItem::new(103, "Plasma Fuel Cell", CargoType::EnergyCell(500.0)),
     ];
 
-    // Wir geben dem Frachtraum ein festes Limit von 1000 kg
     let mut registry = CargoRegistry::new(initial_items, 1000.0);
 
     loop {
-        registry.list_cargo();
+        list_registry_summary(&registry);
         println!("Choose an action:");
-        println!("1: Add new cargo (with weight check)");
+        println!("1: Add new cargo");
         println!("2: Recharge energy cell");
         println!("3: Remove cargo by ID");
         println!("4: Exit");
@@ -209,8 +105,6 @@ fn main() {
                 };
 
                 let new_item = CargoItem::new(id, &name, cargo_type);
-
-                // Wir fangen den Result-Fehler ab, falls das Gewicht das Limit sprengt
                 match registry.add_item(new_item) {
                     Ok(()) => println!("[SUCCESS] Cargo added successfully!"),
                     Err(err) => println!("[CAPACITY ERROR] {}", err),
