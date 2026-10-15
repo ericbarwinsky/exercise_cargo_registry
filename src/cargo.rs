@@ -104,8 +104,19 @@ impl CargoRegistry {
         &self.items
     }
 
+    /// Returns the maximum capacity of the registry.
     pub fn max_capacity(&self) -> f64 {
         self.max_capacity_kg
+    }
+
+    /// Returns a structured summary of the cargo registry for external controllers/AI.
+    pub fn get_status_report(&self) -> String {
+        format!(
+            "Capacity: {:.1} / {:.1} kg | Total Items: {}",
+            self.current_weight(),
+            self.max_capacity_kg,
+            self.items.len()
+        )
     }
 }
 
@@ -124,12 +135,12 @@ mod tests {
 
     #[test]
     fn test_registry_capacity_limit() {
-        let mut registry = CargoRegistry::new(vec![], 50.0); // Limit 50 kg
+        let mut registry = CargoRegistry::new(vec![], 50.0);
 
         let light_item = CargoItem::new(1, "Small Box", CargoType::Food { kg: 30.0, fresh: true });
         assert!(registry.add_item(light_item).is_ok());
 
-        let heavy_item = CargoItem::new(2, "Heavy Armor", CargoType::Mineral(30)); // 30 * 2.5 = 75 kg -> zu schwer!
+        let heavy_item = CargoItem::new(2, "Heavy Armor", CargoType::Mineral(30)); // 75 kg -> zu schwer
         let result = registry.add_item(heavy_item);
         assert!(result.is_err());
     }
@@ -144,5 +155,12 @@ mod tests {
         } else {
             panic!("Expected EnergyCell type");
         }
+    }
+
+    #[test]
+    fn test_status_report() {
+        let registry = CargoRegistry::new(vec![], 1000.0);
+        let report = registry.get_status_report();
+        assert!(report.contains("0.0 / 1000.0 kg"));
     }
 }
