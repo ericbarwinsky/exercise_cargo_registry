@@ -56,14 +56,14 @@ fn main() {
     let mut registry = CargoRegistry::new(initial_items, 1000.0);
 
     loop {
-        list_registry_summary(&registry);
         println!("Choose an action:");
         println!("1: Add new cargo");
         println!("2: Recharge energy cell");
         println!("3: Remove cargo by ID");
-        println!("4: Exit");
+        println!("4: Show current summary");
+        println!("5: Exit");
 
-        match read_u32("Enter choice (1-4): ") {
+        match read_u32("Enter choice (1-5): ") {
             Ok(1) => {
                 let id = match read_u32("Enter cargo ID: ") {
                     Ok(val) => val,
@@ -143,11 +143,14 @@ fn main() {
                 }
             }
             Ok(4) => {
+                list_registry_summary(&registry);
+            }
+            Ok(5) => {
                 println!("Shutting down cargo registry manager. Goodbye!");
                 break;
             }
             Ok(_) => {
-                println!("Invalid choice. Please select between 1 and 4.");
+                println!("Invalid choice. Please select between 1 and 5.");
             }
             Err(e) => {
                 println!("[INPUT ERROR] {}", e);
