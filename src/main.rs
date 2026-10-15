@@ -25,28 +25,43 @@ impl CargoItem {
             cargo_type,
         }
     }
-}
 
-/// Searches the cargo registry for a specific ID.
-/// Returns an `Option<&CargoItem>` via immutable borrowing.
-fn find_cargo_by_id(inventory: &[CargoItem], id: u32) -> Option<&CargoItem> {
-    for item in inventory {
-        if item.id == id {
-            return Some(item);
+    /// Recharges the energy cell if the item is of type EnergyCell.
+    pub fn recharge(&mut self, amount: f64) -> Result<(), String> {
+        match &mut self.cargo_type {
+            CargoType::EnergyCell(energy) => {
+                *energy += amount;
+                Ok(())
+            }
+            _ => Err(format!("Cargo item '{}' (ID: {}) is not an Energy Cell.", self.name, self.id)),
         }
     }
-    None
 }
 
-/// Recharges an energy cell by adding a given amount.
-/// Uses mutable borrowing (`&mut CargoItem`) to modify the inner data safely.
-fn recharge_energy_cell(item: &mut CargoItem, amount: f64) -> Result<(), String> {
-    match &mut item.cargo_type {
-        CargoType::EnergyCell(energy) => {
-            *energy += amount;
-            Ok(())
-        }
-        _ => Err(format!("Cargo item '{}' (ID: {}) is not an Energy Cell.", item.name, item.id)),
+/// Represents the starships cargo hold managing multiple items.
+pub struct CargoRegistry {
+    items: Vec<CargoItem>,
+}
+
+impl CargoRegistry {
+    /// Creates a new empty or pre-populated cargo registry.
+    pub fn new(items: Vec<CargoItem>) -> Self {
+        CargoRegistry { items }
+    }
+
+    /// Finds a cargo item by its ID using functional iterators (immutable borrow).
+    pub fn find_by_id(&self, id: u32) -> Option<&CargoItem> {
+        self.items.iter().find(|item| item.id == id)
+    }
+
+    /// Finds a cargo item by its ID for mutable operations (mutable borrow).
+    pub fn find_by_id_mut(&mut self, id: u32) -> Option<&mut CargoItem> {
+        self.items.iter_mut().find(|item| item.id == id)
+    }
+
+    /// Returns the total count of items in the registry.
+    pub fn count(&self) -> usize {
+        self.items.len()
     }
 }
 
@@ -65,37 +80,28 @@ fn read_cargo_id_input() -> Result<u32, String> {
 
 fn main() {
     println!("========================================");
-    println!("  STARSHIP CARGO & ENERGY REGISTRY v1.1 ");
+    println!("  STARSHIP CARGO & ENERGY REGISTRY v1.2 ");
     println!("========================================");
 
-    // Initialisierung des Inventars mit einer mutablen Bindung (`mut`)
-    let mut inventory = vec![
+    let initial_items = vec![
         CargoItem::new(101, "Titanium Ore", CargoType::Mineral(95)),
         CargoItem::new(102, "Hydroponic Salads", CargoType::Food { kg: 150.5, fresh: true }),
         CargoItem::new(103, "Plasma Fuel Cell", CargoType::EnergyCell(500.0)),
     ];
 
-    println!("Total items loaded in cargo bay: {}", inventory.len());
+    let mut registry = CargoRegistry::new(initial_items);
+
+    println!("Total items loaded in cargo bay: {}", registry.count());
     print!("Enter cargo ID to recharge (e.g., 103): ");
     io::stdout().flush().unwrap();
 
-    // Verwendung unseres Result-basierten Parsers
     match read_cargo_id_input() {
         Ok(search_id) => {
-            // Wir suchen den Container im Inventar – diesmal brauchen wir eine mutable Referenz (`&mut`)
-            let mut target_item: Option<&mut CargoItem> = None;
-            for item in &mut inventory {
-                if item.id == search_id {
-                    target_item = Some(item);
-                    break;
-                }
-            }
-
-            match target_item {
+            // Nutzung der neuen Methode mit mutable Borrowing über Iteratoren
+            match registry.find_by_id_mut(search_id) {
                 Some(item) => {
                     println!("\n[FOUND] Target acquired: {}", item.name);
-                    // Mutable Borrowing in Aktion: Wir laden die Zelle auf
-                    match recharge_energy_cell(item, 150.0) {
+                    match item.recharge(150.0) {
                         Ok(()) => println!("[SUCCESS] Cell recharged! New state: {:?}", item.cargo_type),
                         Err(e) => println!("[ERROR] Recharge failed: {}", e),
                     }
